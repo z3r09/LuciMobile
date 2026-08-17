@@ -1,0 +1,51 @@
+name: Build APK (arm64)
+
+# Builds an unsigned arm64-v8a release APK in the cloud and uploads it
+# as a downloadable GitHub Actions artifact. No keystore needed.
+#
+# Trigger manually from the Actions tab -> "Build APK (arm64)" -> Run workflow,
+# or automatically on every push to main.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-android:
+    name: Build arm64-v8a APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Set up Java
+      - name: Set Up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 3. Set up Flutter (latest stable; caches for speed)
+      - name: Set Up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      # 4. Install dependencies
+      - name: Install Dependencies
+        run: flutter pub get
+
+      # 5. Build an unsigned arm64-v8a release APK (keeps the file small)
+      - name: Build APK
+        run: flutter build apk --release --target-platform android-arm64
+
+      # 6. Upload the built APK for download
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-arm64-release
+          path: build/app/outputs/flutter-apk/app-release.apk

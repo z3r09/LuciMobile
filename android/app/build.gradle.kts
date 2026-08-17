@@ -37,6 +37,13 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Build for arm64-v8a ONLY to reduce APK size.
+        // This strips armeabi-v7a, x86 and x86_64 native libraries,
+        // cutting APK size significantly for modern 64-bit Android devices.
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     signingConfigs {

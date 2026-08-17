@@ -11,6 +11,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:luci_mobile/config/app_config.dart';
 import 'package:luci_mobile/screens/manage_routers_screen.dart';
+import 'package:luci_mobile/screens/system_status_screen.dart';
+import 'package:luci_mobile/screens/system_log_screen.dart';
+import 'package:luci_mobile/screens/wifi_screen.dart';
 import 'package:luci_mobile/utils/http_client_manager.dart';
 import 'package:luci_mobile/state/app_state.dart';
 
@@ -324,6 +327,53 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   ],
                 );
               },
+            ),
+            const LuciSectionHeader('Monitoring'),
+            _MoreScreenSection(
+              tiles: [
+                _buildMoreTile(
+                  context,
+                  icon: Icons.monitor_heart_outlined,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: 'System Status',
+                  subtitle: 'CPU, memory, load, uptime, firmware',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const SystemStatusScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.article_outlined,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: 'System Log',
+                  subtitle: 'Read the router system log',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const SystemLogScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.wifi,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: 'WiFi',
+                  subtitle: 'Client signal strength & channel scan',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const WifiScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
             const LuciSectionHeader('Application'),
             _MoreScreenSection(

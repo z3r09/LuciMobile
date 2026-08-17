@@ -48,6 +48,17 @@
 
 ---
 
+## Latest OpenWrt Monitoring (v1.2.0)
+
+- **System Status** (`More` → System Status): device, model, firmware & kernel version, uptime, load average, live memory usage, plus quick actions to restart a service or reload wireless config.
+- **System Log** (`More` → System Log): reads the router's kernel/system log via `ubus call log read`.
+- **WiFi** (`More` → WiFi): live per-client signal strength (RSSI/dBm) and link rate, plus an in-app channel scanner of nearby networks (`luci-rpc getWifiScan` / `getWirelessStations`).
+- Android builds now target **arm64-v8a only** (see `android/app/build.gradle.kts`) to keep the APK small.
+
+Requires `luci-mod-rpc rpcd-mod-luci rpcd-mod-iwinfo luci-mod-status` on the router, as described under Troubleshooting.
+
+---
+
 ## Screenshots
 
 | Login | Dashboard | Clients | Interfaces |

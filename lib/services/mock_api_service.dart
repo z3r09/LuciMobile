@@ -364,6 +364,122 @@ class MockApiService implements IApiService {
           },
         ];
 
+      case 'log.read':
+        return [
+          0,
+          [
+            {
+              'time': _getVariedTimestamp() - 5,
+              'msg': 'daemon.info netifd[1]: Failed to request DHCPv6'
+            },
+            {
+              'time': _getVariedTimestamp() - 20,
+              'msg': 'daemon.notice netifd[1]: IPv6 lease expired'
+            },
+            {
+              'time': _getVariedTimestamp() - 60,
+              'msg': 'user.notice firewall: Reloading firewall due to ifup of lan'
+            },
+            {
+              'time': _getVariedTimestamp() - 120,
+              'msg':
+                  'kern.info kernel: br-lan: port 1(eth0.1) entered blocking state'
+            },
+            {
+              'time': _getVariedTimestamp() - 300,
+              'msg': 'daemon.info procd: - init complete -'
+            },
+          ],
+        ];
+
+      case 'luci-rpc.getWifiScan':
+        return [
+          0,
+          [
+            {
+              'ssid': 'MockNeighborWiFi',
+              'bssid': 'aa:bb:cc:00:00:01',
+              'channel': 1,
+              'signal': -42,
+              'encryption': 'WPA2/PSK',
+              'quality': 82,
+              'mode': 'Master',
+            },
+            {
+              'ssid': 'CoffeeShop_Guest',
+              'bssid': 'aa:bb:cc:00:00:02',
+              'channel': 6,
+              'signal': -63,
+              'encryption': 'WPA3/SAE',
+              'quality': 55,
+              'mode': 'Master',
+            },
+            {
+              'ssid': 'MockWiFi',
+              'bssid': 'aa:bb:cc:00:00:03',
+              'channel': 11,
+              'signal': -51,
+              'encryption': 'WPA2/PSK',
+              'quality': 70,
+              'mode': 'Master',
+            },
+            {
+              'ssid': '',
+              'bssid': 'aa:bb:cc:00:00:04',
+              'channel': 1,
+              'signal': -75,
+              'encryption': 'Open',
+              'quality': 30,
+              'mode': 'Master',
+            },
+          ],
+        ];
+
+      case 'luci-rpc.getWirelessStations':
+        return [
+          0,
+          [
+            {
+              'mac': 'aa:bb:cc:11:22:33',
+              'signal': -48,
+              'noise': -92,
+              'txrate': 433,
+              'rxrate': 289,
+              'connected': 3600,
+              'hostname': 'iPhone-John',
+            },
+            {
+              'mac': 'aa:bb:cc:44:55:66',
+              'signal': -61,
+              'noise': -92,
+              'txrate': 130,
+              'rxrate': 130,
+              'connected': 7200,
+              'hostname': 'MacBook-Pro',
+            },
+            {
+              'mac': 'aa:bb:cc:77:88:99',
+              'signal': -72,
+              'noise': -92,
+              'txrate': 65,
+              'rxrate': 108,
+              'connected': 18000,
+            },
+          ],
+        ];
+
+      case 'luci-rpc.getRealtimeStats':
+        return [
+          0,
+          {
+            'cpu': [1, 2, 3, 4],
+            'memfree': 62000000,
+            'buffer': 4000000,
+            'cache': 12000000,
+            'load': [0.33, 0.22, 0.15],
+          },
+        ];
+
       case 'file.exec':
       case 'luci-rpc.getDHCPLeases':
         // DHCP leases data

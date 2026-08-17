@@ -18,6 +18,10 @@ import 'package:luci_mobile/services/service_factory.dart';
 import 'package:luci_mobile/config/app_config.dart';
 import 'package:luci_mobile/utils/http_client_manager.dart';
 import 'package:luci_mobile/utils/logger.dart';
+import 'package:luci_mobile/models/system_info.dart';
+import 'package:luci_mobile/models/system_log_entry.dart';
+import 'package:luci_mobile/models/wifi_network.dart';
+import 'package:luci_mobile/models/wireless_station.dart';
 
 class AppState extends ChangeNotifier {
   static AppState? _instance;
@@ -1647,6 +1651,279 @@ class AppState extends ChangeNotifier {
     } catch (e, stack) {
       Logger.exception('Failed to aggregate DHCP leases', e, stack);
       return [];
+    }
+  }
+
+  // ==========================================================================
+  // Latest OpenWrt monitoring (system status, log, wifi scan, wireless RSSI)
+  // ==========================================================================
+  SystemInfo? _systemInfo;
+  SystemInfo? get systemInfo => _systemInfo;
+  bool _isSystemInfoLoading = false;
+  bool get isSystemInfoLoading => _isSystemInfoLoading;
+
+  Map<String, dynamic>? _realtimeStats;
+  Map<String, dynamic>? get realtimeStats => _realtimeStats;
+
+  List<SystemLogEntry> _systemLog = [];
+  List<SystemLogEntry> get systemLog => _systemLog;
+  bool _isSystemLogLoading = false;
+  bool get isSystemLogLoading => _isSystemLogLoading;
+
+  List<WiFiNetwork> _wifiScan = [];
+  List<WiFiNetwork> get wifiScan => _wifiScan;
+
+  Map<String, List<WirelessStation>> _wirelessStations = {};
+  Map<String, List<WirelessStation>> get wirelessStations => _wirelessStations;
+  bool _isWifiLoading = false;
+  bool get isWifiLoading => _isWifiLoading;
+
+  // Convenience flattened list of all associated wireless clients w/ signal.
+  List<WirelessStation> get allWirelessStations {
+    final out = <WirelessStation>[];
+    _wirelessStations.forEach((_, stations) => out.addAll(stations));
+    return out;
+  }
+
+  Future<void> fetchSystemInfo() async {
+    final router = _routerService?.selectedRouter;
+    final token = _authService?.sysauth;
+    if (router == null || token == null) return;
+    _isSystemInfoLoading = true;
+    notifyListeners();
+    try {
+      final results = await Future.wait([
+        _apiService!.call(
+          router.ipAddress,
+          token,
+          router.useHttps,
+          object: 'system',
+          method: 'board',
+          params: {},
+        ),
+        _apiService!.call(
+          router.ipAddress,
+          token,
+          router.useHttps,
+          object: 'system',
+          method: 'info',
+          params: {},
+        ),
+      ]);
+      Map<String, dynamic>? boardInfo;
+      Map<String, dynamic>? sysInfo;
+      for (final r in results) {
+        if (r is List && r.length > 1 && r[0] == 0 && r[1] is Map) {
+          final data = r[1] as Map;
+          // board has 'hostname'/'model', info has 'uptime'/'memory'
+          if (data.containsKey('model') || data.containsKey('kernel')) {
+            boardInfo = Map<String, dynamic>.from(data);
+          } else {
+            sysInfo = Map<String, dynamic>.from(data);
+          }
+        }
+      }
+      _systemInfo = SystemInfo.fromBoardAndInfo(boardInfo, sysInfo);
+      _isSystemInfoLoading = false;
+      notifyListeners();
+    } catch (e, stack) {
+      Logger.exception('Failed to fetch system info', e, stack);
+      _systemInfo = null;
+      _isSystemInfoLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchRealtimeStats() async {
+    final router = _routerService?.selectedRouter;
+    final token = _authService?.sysauth;
+    if (router == null || token == null) return null;
+    try {
+      final res = await _apiService!.call(
+        router.ipAddress,
+        token,
+        router.useHttps,
+        object: 'luci-rpc',
+        method: 'getRealtimeStats',
+        params: {},
+      );
+      if (res is List && res.length > 1 && res[0] == 0 && res[1] is Map) {
+        _realtimeStats = Map<String, dynamic>.from(res[1] as Map);
+        notifyListeners();
+        return _realtimeStats;
+      }
+      return null;
+    } catch (e, stack) {
+      Logger.exception('Failed to fetch realtime stats', e, stack);
+      return null;
+    }
+  }
+
+  Future<void> fetchSystemLog({int lines = 100}) async {
+    final router = _routerService?.selectedRouter;
+    final token = _authService?.sysauth;
+    if (router == null || token == null) return;
+    _isSystemLogLoading = true;
+    notifyListeners();
+    try {
+      final res = await _apiService!.call(
+        router.ipAddress,
+        token,
+        router.useHttps,
+        object: 'log',
+        method: 'read',
+        params: {'lines': lines},
+      );
+      _systemLog = [];
+      if (res is List && res.length > 1 && res[0] == 0) {
+        final data = res[1];
+        if (data is List) {
+          _systemLog = data
+              .whereType<Map>()
+              .map((e) => SystemLogEntry.fromJson(Map<String, dynamic>.from(e)))
+              .toList();
+        } else if (data is Map) {
+          final list = data['log'] ?? data['entries'];
+          if (list is List) {
+            _systemLog = list
+                .whereType<Map>()
+                .map(
+                  (e) => SystemLogEntry.fromJson(Map<String, dynamic>.from(e)),
+                )
+                .toList();
+          }
+        }
+      }
+      _isSystemLogLoading = false;
+      notifyListeners();
+    } catch (e, stack) {
+      Logger.exception('Failed to fetch system log', e, stack);
+      _systemLog = [];
+      _isSystemLogLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchWifiScan({String? radio}) async {
+    final router = _routerService?.selectedRouter;
+    final token = _authService?.sysauth;
+    if (router == null || token == null) return;
+    _isWifiLoading = true;
+    notifyListeners();
+    try {
+      final res = await _apiService!.call(
+        router.ipAddress,
+        token,
+        router.useHttps,
+        object: 'luci-rpc',
+        method: 'getWifiScan',
+        params: {'radio': radio ?? ''},
+      );
+      _wifiScan = [];
+      if (res is List && res.length > 1 && res[0] == 0 && res[1] is List) {
+        _wifiScan = (res[1] as List)
+            .whereType<Map>()
+            .map((e) => WiFiNetwork.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+      _isWifiLoading = false;
+      notifyListeners();
+    } catch (e, stack) {
+      Logger.exception('Failed to fetch wifi scan', e, stack);
+      _wifiScan = [];
+      _isWifiLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchWirelessStations({String? device}) async {
+    final router = _routerService?.selectedRouter;
+    final token = _authService?.sysauth;
+    if (router == null || token == null) return;
+    _isWifiLoading = true;
+    notifyListeners();
+    try {
+      final radios = <String>[];
+      if (device == null || device.isEmpty) {
+        final wres = await _apiService!.call(
+          router.ipAddress,
+          token,
+          router.useHttps,
+          object: 'luci-rpc',
+          method: 'getWirelessDevices',
+          params: {},
+        );
+        if (wres is List && wres.length > 1 && wres[0] == 0 && wres[1] is Map) {
+          radios.addAll((wres[1] as Map).keys.cast<String>());
+        }
+        if (radios.isEmpty) radios.add('radio0');
+      } else {
+        radios.add(device);
+      }
+
+      final stations = <String, List<WirelessStation>>{};
+      for (final r in radios) {
+        final res = await _apiService!.call(
+          router.ipAddress,
+          token,
+          router.useHttps,
+          object: 'luci-rpc',
+          method: 'getWirelessStations',
+          params: {'device': r},
+        );
+        if (res is List && res.length > 1 && res[0] == 0 && res[1] is List) {
+          stations[r] = (res[1] as List)
+              .map((e) => WirelessStation.fromJson(e))
+              .toList();
+        }
+      }
+      _wirelessStations = stations;
+      _isWifiLoading = false;
+      notifyListeners();
+    } catch (e, stack) {
+      Logger.exception('Failed to fetch wireless stations', e, stack);
+      _wirelessStations = {};
+      _isWifiLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Restart a procd service, e.g. `firewall`, `dnsmasq`, `network`, `odhcpd`.
+  Future<bool> restartService(String service) async {
+    final router = _routerService?.selectedRouter;
+    final token = _authService?.sysauth;
+    if (router == null || token == null || service.trim().isEmpty) return false;
+    try {
+      final res = await _apiService!.systemExec(
+        router.ipAddress,
+        token,
+        router.useHttps,
+        command: '/etc/init.d/${service.trim()} restart',
+      );
+      return res is List && res.isNotEmpty && res[0] == 0;
+    } catch (e, stack) {
+      Logger.exception('Failed to restart service $service', e, stack);
+      return false;
+    }
+  }
+
+  /// Reload wireless configuration (`wifi reload`) hot-reload without
+  /// taking the LAN down.
+  Future<bool> reloadWireless() async {
+    final router = _routerService?.selectedRouter;
+    final token = _authService?.sysauth;
+    if (router == null || token == null) return false;
+    try {
+      final res = await _apiService!.systemExec(
+        router.ipAddress,
+        token,
+        router.useHttps,
+        command: 'wifi reload',
+      );
+      return res is List && res.isNotEmpty && res[0] == 0;
+    } catch (e, stack) {
+      Logger.exception('Failed to reload wireless', e, stack);
+      return false;
     }
   }
 }
