@@ -167,7 +167,7 @@ class _MemoryCard extends StatelessWidget {
     String freeText;
     if (realtime?['memfree'] is num && total > 0) {
       final free = (realtime!['memfree'] as num).toInt();
-      percent = ((total - free) / total).clamp(0.0, 1.0);
+      percent = ((total - free) / total).clamp(0.0, 1.0).toDouble();
       freeText = '${SystemInfo.formatBytes(free)} free';
     } else {
       freeText = '${SystemInfo.formatBytes(info.memoryFree)} free';

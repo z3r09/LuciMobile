@@ -86,8 +86,9 @@ class SystemInfo {
     return used < 0 ? 0 : used;
   }
 
-  double get memoryUsagePercent =>
-      memoryTotal <= 0 ? 0 : (memoryUsed / memoryTotal).clamp(0.0, 1.0);
+  double get memoryUsagePercent => memoryTotal <= 0
+      ? 0.0
+      : (memoryUsed / memoryTotal).clamp(0.0, 1.0).toDouble();
 
   double get load1 => loadAverage.isNotEmpty ? loadAverage[0] : 0;
   double get load5 => loadAverage.length > 1 ? loadAverage[1] : 0;
