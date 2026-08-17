@@ -40,7 +40,8 @@ jobs:
         run: flutter pub get
 
       # 5. Build an unsigned arm64-v8a release APK (keeps the file small).
-      #    Tee the full output to build_apk.log so it can be diagnosed on failure.
+      #    Tee the full output to build_apk.log AND emit it as ::error::
+      #    annotations so the real failure is readable from the run page/API.
       - name: Build APK
         id: build
         run: |
@@ -48,6 +49,11 @@ jobs:
           flutter build apk --release --target-platform android-arm64 2>&1 | tee build_apk.log
           exit_code=${PIPESTATUS[0]}
           echo "BUILD_EXIT=$exit_code" >> "$GITHUB_OUTPUT"
+          if [ "$exit_code" != "0" ] && [ -s build_apk.log ]; then
+            echo "::group::Build output"
+            sed 's/^/::error::/' build_apk.log | head -120
+            echo "::endgroup::"
+          fi
           exit $exit_code
 
       # 6. Upload the built APK for download (only when the build succeeded)
